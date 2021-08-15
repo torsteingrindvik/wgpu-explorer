@@ -1,0 +1,25 @@
+[package]
+name = "wgpu-explorer"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+# Error handling
+color-eyre = "0.5.11"
+
+# Logging
+env_logger = "0.9.0"
+
+# Simple async blocking
+pollster = "0.2.4"
+
+# GPU rendering
+wgpu = "0.9.0"
+
+# Window handling
+winit = "0.25.0"
+
+# Struct repr stuff
+bytemuck = { version = "1.7.2", features = ["derive"] }
+image = "0.23.14"
+
