@@ -1,6 +1,7 @@
 use color_eyre::{eyre::ContextCompat, Result};
 use viewport::Viewport;
 use wgpu::*;
+use window_extra::WindowExtra;
 use window_main::WindowMain;
 use winit::{
     event::{Event, KeyboardInput, WindowEvent},
@@ -54,6 +55,13 @@ async fn run() -> Result<()> {
         &texture_format,
     )?;
 
+    let mut extra = WindowExtra::new(
+        Viewport::new(window_extra, &instance, &adapter, &device)?,
+        &device,
+        &queue,
+        &texture_format,
+    )?;
+
     event_loop.run(move |event, _, control_flow| {
         let _ = (&instance, &adapter);
 
@@ -69,7 +77,8 @@ async fn run() -> Result<()> {
 
                 if window_id == main.viewport.window.id() {
                     main.viewport.resize(&device, size);
-                } else if window_id == window_extra.id() {
+                } else if window_id == extra.viewport.window.id() {
+                    extra.viewport.resize(&device, size);
                 } else {
                     panic!("OTHER WINDOW???");
                 }
@@ -92,7 +101,8 @@ async fn run() -> Result<()> {
 
                 if window_id == main.viewport.window.id() {
                     main.handle_key(key);
-                } else if window_id == window_extra.id() {
+                } else if window_id == extra.viewport.window.id() {
+                    extra.handle_key(key);
                 } else {
                     panic!("OTHER WINDOW???");
                 }
@@ -102,7 +112,10 @@ async fn run() -> Result<()> {
                 println!("Redraw on id {:?}", window_id);
                 if window_id == main.viewport.window.id() {
                     main.render(&device, &queue).expect("Render main gone bad");
-                } else if window_id == window_extra.id() {
+                } else if window_id == extra.viewport.window.id() {
+                    extra
+                        .render(&device, &queue)
+                        .expect("Render extra gone bad");
                 } else {
                     panic!("OTHER WINDOW???");
                 }
