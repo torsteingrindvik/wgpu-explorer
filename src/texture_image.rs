@@ -2,8 +2,8 @@ use color_eyre::Result;
 use image::GenericImageView;
 use std::{fs::File, io::BufReader, num::NonZeroU32};
 use wgpu::{
-    AddressMode, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d, Queue,
-    Sampler, SamplerDescriptor, Texture, TextureDescriptor, TextureDimension, TextureFormat,
+    AddressMode, Color, Device, Extent3d, FilterMode, ImageCopyTexture, ImageDataLayout, Origin3d,
+    Queue, Sampler, SamplerDescriptor, Texture, TextureDescriptor, TextureDimension, TextureFormat,
     TextureUsage, TextureView, TextureViewDescriptor,
 };
 
@@ -15,18 +15,13 @@ pub struct TextureImage {
     pub data: Vec<u8>,
 }
 
+/// A texture + image in Rgba8UnormSrgb format.
 impl TextureImage {
-    pub fn new(device: &Device, path: &str) -> Result<Self> {
-        let format = image::ImageFormat::from_path(path)?;
-        let reader = BufReader::new(File::open(path)?);
-
-        let image = image::load(reader, format)?;
-        let data = image.to_rgba8().to_vec();
-
-        let dimensions = image.dimensions();
+    pub fn new(device: &Device, width: usize, height: usize, data: &[u8]) -> Result<Self> {
+        let data = data.to_owned();
         let extent = Extent3d {
-            width: dimensions.0,
-            height: dimensions.1,
+            width: width as u32,
+            height: height as u32,
             depth_or_array_layers: 1,
         };
 
@@ -46,7 +41,7 @@ impl TextureImage {
             address_mode_u: AddressMode::ClampToEdge,
             address_mode_v: AddressMode::ClampToEdge,
             address_mode_w: AddressMode::ClampToEdge,
-            mag_filter: FilterMode::Linear,
+            mag_filter: FilterMode::Nearest,
             min_filter: FilterMode::Nearest,
             mipmap_filter: FilterMode::Nearest,
             ..Default::default()
@@ -59,6 +54,19 @@ impl TextureImage {
             extent,
             data,
         })
+    }
+
+    pub fn new_from_path(device: &Device, path: &str) -> Result<Self> {
+        let format = image::ImageFormat::from_path(path)?;
+        let reader = BufReader::new(File::open(path)?);
+
+        let image = image::load(reader, format)?;
+        // let data = image.to_rgba8().to_vec();
+        let data = image.to_rgba8();
+
+        let dimensions = image.dimensions();
+
+        Self::new(device, dimensions.0 as usize, dimensions.1 as usize, &data)
     }
 
     pub fn write(&self, queue: &Queue) {
@@ -76,5 +84,33 @@ impl TextureImage {
             },
             self.extent,
         )
+    }
+
+    fn size_of_pixel() -> usize {
+        4
+    }
+
+    fn color_to_rgba(color: &Color) -> (u8, u8, u8, u8) {
+        (
+            (color.r * 256.0) as u8,
+            (color.g * 256.0) as u8,
+            (color.b * 256.0) as u8,
+            (color.a * 256.0) as u8,
+        )
+    }
+
+    pub fn set_pixel(&mut self, x: usize, y: usize, color: Color) {
+        let pixel_size = Self::size_of_pixel();
+
+        let column_size = pixel_size;
+        let row_size = self.extent.width as usize * column_size;
+
+        let pos = (x * column_size) + (y * row_size);
+
+        let (red, green, blue, alpha) = Self::color_to_rgba(&color);
+        self.data[pos] = red;
+        self.data[pos + 1] = green;
+        self.data[pos + 2] = blue;
+        self.data[pos + 3] = alpha;
     }
 }

@@ -4,6 +4,7 @@ use wgpu::*;
 use window_extra::WindowExtra;
 use window_main::WindowMain;
 use winit::{
+    dpi::{PhysicalPosition, PhysicalSize},
     event::{Event, KeyboardInput, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::Window,
@@ -24,7 +25,12 @@ async fn run() -> Result<()> {
     let event_loop = EventLoop::new();
 
     let window_main = Window::new(&event_loop)?;
+    window_main.set_inner_size(PhysicalSize::new(800, 800));
+    window_main.set_outer_position(PhysicalPosition::new(0.0, 300.0));
+
     let window_extra = Window::new(&event_loop)?;
+    window_extra.set_inner_size(PhysicalSize::new(1600, 800));
+    window_extra.set_outer_position(PhysicalPosition::new(800.0, 300.0));
 
     let surface = unsafe { instance.create_surface(&window_main) };
     let adapter = instance

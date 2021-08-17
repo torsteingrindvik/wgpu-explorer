@@ -133,9 +133,34 @@ impl WindowMain {
     ) -> Result<Self> {
         let bind_group_layout = bind_group_layout(device);
 
-        let image_path = concat!(env!("CARGO_MANIFEST_DIR"), "/src/rocks.png");
+        let width = 32;
+        let height = 32;
 
-        let image = TextureImage::new(device, image_path)?;
+        // 4 bytes per point: rgba
+        let data: Vec<u8> = vec![0; width * height * 4];
+
+        let mut image = TextureImage::new(device, width, height, &data)?;
+
+        for x in 0..width {
+            for y in 0..height {
+                match (x, y) {
+                    (x, y) if x < 16 && y < 16 => {
+                        image.set_pixel(x, y, Color::RED);
+                    }
+                    (x, y) if x >= 16 && y < 16 => {
+                        image.set_pixel(x, y, Color::GREEN);
+                    }
+                    (x, y) if x < 16 && y >= 16 => {
+                        image.set_pixel(x, y, Color::BLUE);
+                    }
+                    (x, y) => {
+                        image.set_pixel(x, y, Color::WHITE);
+                    }
+                }
+            }
+        }
+
+
         let bind_group = bind_group(
             device,
             &bind_group_layout,
@@ -214,7 +239,12 @@ impl WindowMain {
                     view: &frame.view,
                     resolve_target: None,
                     ops: Operations {
-                        load: LoadOp::Clear(Color::BLACK),
+                        load: LoadOp::Clear(Color {
+                            r: 5.0 / 256.0,
+                            g: 73.0 / 256.0,
+                            b: 80.0 / 256.0,
+                            a: 1.0,
+                        }),
                         store: true,
                     },
                 }],

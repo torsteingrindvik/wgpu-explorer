@@ -127,11 +127,11 @@ impl WindowExtra {
     ) -> Result<Self> {
         let bind_group_layout = bind_group_layout(device);
 
-        let left_image = TextureImage::new(
+        let left_image = TextureImage::new_from_path(
             device,
             concat!(env!("CARGO_MANIFEST_DIR"), "/src/aztec-diffuse.png"),
         )?;
-        let right_image = TextureImage::new(
+        let right_image = TextureImage::new_from_path(
             device,
             concat!(env!("CARGO_MANIFEST_DIR"), "/src/aztec-height.png"),
         )?;
