@@ -1,4 +1,5 @@
 use color_eyre::{eyre::ContextCompat, Result};
+use log::debug;
 use viewport::Viewport;
 use wgpu::*;
 use window_extra::WindowExtra;
@@ -13,9 +14,11 @@ use winit::{
 mod window_extra;
 mod window_main;
 
+mod camera;
 mod misc;
 mod square;
 mod texture_image;
+mod vec;
 mod vertex;
 mod viewport;
 
@@ -57,7 +60,7 @@ async fn run() -> Result<()> {
     let mut main = WindowMain::new(
         Viewport::new(window_main, &instance, &adapter, &device)?,
         &device,
-        &queue,
+        // &queue,
         &texture_format,
     )?;
 
@@ -79,7 +82,7 @@ async fn run() -> Result<()> {
                 event: WindowEvent::Resized(size),
                 ..
             } => {
-                println!("Resize: {:?}, id: {:?}", size, window_id);
+                debug!("Resize: {:?}, id: {:?}", size, window_id);
 
                 if window_id == main.viewport.window.id() {
                     main.viewport.resize(&device, size);
@@ -103,7 +106,7 @@ async fn run() -> Result<()> {
                     },
                 ..
             } => {
-                println!("Pressed: {:?}, id: {:?}", key, window_id);
+                debug!("Pressed: {:?}, id: {:?}", key, window_id);
 
                 if window_id == main.viewport.window.id() {
                     main.handle_key(key);
@@ -115,7 +118,7 @@ async fn run() -> Result<()> {
             }
 
             Event::RedrawRequested(window_id) => {
-                println!("Redraw on id {:?}", window_id);
+                debug!("Redraw on id {:?}", window_id);
                 if window_id == main.viewport.window.id() {
                     main.render(&device, &queue).expect("Render main gone bad");
                 } else if window_id == extra.viewport.window.id() {
@@ -138,7 +141,7 @@ async fn run() -> Result<()> {
 }
 
 fn main() -> Result<()> {
-    env_logger::init_from_env(env_logger::Env::default().default_filter_or("debug"));
+    env_logger::init_from_env(env_logger::Env::default().default_filter_or("warn"));
 
     pollster::block_on(run())
 }

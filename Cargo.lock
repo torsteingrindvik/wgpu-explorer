@@ -2069,6 +2069,7 @@ dependencies = [
  "color-eyre",
  "env_logger",
  "image",
+ "log",
  "pollster",
  "wgpu",
  "winit",

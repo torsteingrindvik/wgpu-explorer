@@ -1,5 +1,7 @@
-use wgpu::{Adapter, Device, Instance, PresentMode, Surface, SwapChain, SwapChainDescriptor, TextureUsage};
 use color_eyre::{eyre::ContextCompat, Result};
+use wgpu::{
+    Adapter, Device, Instance, PresentMode, Surface, SwapChain, SwapChainDescriptor, TextureUsage,
+};
 use winit::{dpi::PhysicalSize, window::Window};
 
 pub struct Viewport {

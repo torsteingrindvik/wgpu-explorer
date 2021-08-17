@@ -1,6 +1,7 @@
 use std::{borrow::Cow, mem};
 
 use crate::{
+    camera::Camera,
     misc::Direction,
     square::Square,
     texture_image::TextureImage,
@@ -8,6 +9,7 @@ use crate::{
     viewport::Viewport,
 };
 use color_eyre::Result;
+use log::debug;
 use wgpu::*;
 use winit::event::VirtualKeyCode;
 
@@ -20,6 +22,7 @@ pub struct WindowMain {
     pub bind_group: BindGroup,
     pub image: TextureImage,
     pub displace_amount: f32,
+    pub camera: Camera,
 }
 
 fn bind_group_layout(device: &Device) -> BindGroupLayout {
@@ -125,41 +128,48 @@ fn render_pipeline(
 }
 
 impl WindowMain {
+    fn rewrite_texture(&mut self) {
+        let w = self.image.extent.width as usize;
+        let h = self.image.extent.height as usize;
+
+        debug!("w,h: {:?}", &(w, h));
+
+        for x in 0..w {
+            for y in 0..h {
+                let widthf = w as f32;
+                let heightf = h as f32;
+                let xf = x as f32;
+                let yf = y as f32;
+
+                let xf = (-widthf + 2.0 * xf) / widthf;
+                let yf = -(-heightf + 2.0 * yf) / heightf;
+
+                if self.camera.within_view(xf, yf) {
+                    self.image.set_pixel(x, y, Color::BLUE);
+                } else {
+                    self.image.set_pixel(x, y, Color::BLACK);
+                }
+            }
+        }
+    }
+
     pub fn new(
         viewport: Viewport,
         device: &Device,
-        queue: &Queue,
         texture_format: &TextureFormat,
     ) -> Result<Self> {
         let bind_group_layout = bind_group_layout(device);
 
-        let width = 32;
-        let height = 32;
+        let size = 512;
+        let width = size;
+        let height = size;
 
         // 4 bytes per point: rgba
         let data: Vec<u8> = vec![0; width * height * 4];
 
-        let mut image = TextureImage::new(device, width, height, &data)?;
+        let image = TextureImage::new(device, width, height, &data)?;
 
-        for x in 0..width {
-            for y in 0..height {
-                match (x, y) {
-                    (x, y) if x < 16 && y < 16 => {
-                        image.set_pixel(x, y, Color::RED);
-                    }
-                    (x, y) if x >= 16 && y < 16 => {
-                        image.set_pixel(x, y, Color::GREEN);
-                    }
-                    (x, y) if x < 16 && y >= 16 => {
-                        image.set_pixel(x, y, Color::BLUE);
-                    }
-                    (x, y) => {
-                        image.set_pixel(x, y, Color::WHITE);
-                    }
-                }
-            }
-        }
-
+        let camera = Camera::default();
 
         let bind_group = bind_group(
             device,
@@ -173,26 +183,19 @@ impl WindowMain {
 
         let square = Square::default();
 
-        // let square = Square::new_from_vertices([
-        //     Vertex::new(-1.0, 1.0, 0.0, 0.0),
-        //     Vertex::new(0.0, 1.0, 1.0, 0.0),
-        //     Vertex::new(0.0, -1.0, 1.0, 1.0),
-        //     Vertex::new(-1.0, -1.0, 0.0, 1.0),
-        // ]);
+        let displace_amount = 0.05;
 
-        let displace_amount = 0.01;
-
-        let new_self = Self {
+        let mut new_self = Self {
             viewport,
             square,
             render_pipeline,
             bind_group,
             image,
             displace_amount,
+            camera,
         };
 
-        new_self.push_resources(device, queue)?;
-
+        new_self.rewrite_texture();
         Ok(new_self)
     }
 
@@ -202,23 +205,46 @@ impl WindowMain {
             F1 => self.displace_amount = f32::max(DIFF, self.displace_amount - DIFF),
             F2 => self.displace_amount += DIFF,
 
+            F3 => {
+                self.camera.fov = f32::max(
+                    std::f32::consts::FRAC_PI_8,
+                    self.camera.fov - std::f32::consts::FRAC_PI_8 / 2.0,
+                )
+            }
+            F4 => {
+                self.camera.fov = f32::min(
+                    std::f32::consts::PI,
+                    self.camera.fov + std::f32::consts::FRAC_PI_8 / 2.0,
+                )
+            }
+
             Key1 | Numpad1 => self.square.set_selected(VertexSelected::One),
             Key2 | Numpad2 => self.square.set_selected(VertexSelected::Two),
             Key3 | Numpad3 => self.square.set_selected(VertexSelected::Three),
             Key4 | Numpad4 => self.square.set_selected(VertexSelected::Four),
 
-            Left | A => self.square.displace(Direction::Left, self.displace_amount),
-            Right | D => self.square.displace(Direction::Right, self.displace_amount),
-            Up | W => self.square.displace(Direction::Up, self.displace_amount),
-            Down | S => self.square.displace(Direction::Down, self.displace_amount),
+            Left => self.square.displace(Direction::Left, self.displace_amount),
+            Right => self.square.displace(Direction::Right, self.displace_amount),
+            Up => self.square.displace(Direction::Up, self.displace_amount),
+            Down => self.square.displace(Direction::Down, self.displace_amount),
+
+            A => self.camera.displace(Direction::Left, self.displace_amount),
+            D => self.camera.displace(Direction::Right, self.displace_amount),
+            W => self.camera.displace(Direction::Up, self.displace_amount),
+            S => self.camera.displace(Direction::Down, self.displace_amount),
+
+            Q => self.camera.rotate(std::f32::consts::FRAC_PI_8 / 2.0),
+            E => self.camera.rotate(-std::f32::consts::FRAC_PI_8 / 2.0),
 
             _ => {}
         }
 
+        self.rewrite_texture();
+
         self.viewport.window.request_redraw();
     }
 
-    fn push_resources(&self, _device: &Device, queue: &Queue) -> Result<()> {
+    fn reset_resources(&self, _device: &Device, queue: &Queue) -> Result<()> {
         self.image.write(queue);
 
         Ok(())
@@ -226,6 +252,8 @@ impl WindowMain {
 
     pub fn render(&self, device: &Device, queue: &Queue) -> Result<()> {
         let frame = self.viewport.swap_chain.get_current_frame()?.output;
+
+        self.reset_resources(device, queue)?;
 
         let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
 
