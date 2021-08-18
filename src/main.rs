@@ -18,6 +18,7 @@ mod camera;
 mod misc;
 mod square;
 mod texture_image;
+mod triangle;
 mod vec;
 mod vertex;
 mod viewport;
@@ -32,7 +33,7 @@ async fn run() -> Result<()> {
     window_main.set_outer_position(PhysicalPosition::new(0.0, 300.0));
 
     let window_extra = Window::new(&event_loop)?;
-    window_extra.set_inner_size(PhysicalSize::new(1600, 800));
+    window_extra.set_inner_size(PhysicalSize::new(800, 800));
     window_extra.set_outer_position(PhysicalPosition::new(800.0, 300.0));
 
     let surface = unsafe { instance.create_surface(&window_main) };
@@ -121,9 +122,10 @@ async fn run() -> Result<()> {
                 debug!("Redraw on id {:?}", window_id);
                 if window_id == main.viewport.window.id() {
                     main.render(&device, &queue).expect("Render main gone bad");
+                    extra.viewport.window.request_redraw();
                 } else if window_id == extra.viewport.window.id() {
                     extra
-                        .render(&device, &queue)
+                        .render(&device, &queue, &main.camera)
                         .expect("Render extra gone bad");
                 } else {
                     panic!("OTHER WINDOW???");

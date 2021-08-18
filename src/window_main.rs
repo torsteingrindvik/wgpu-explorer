@@ -5,7 +5,7 @@ use crate::{
     misc::Direction,
     square::Square,
     texture_image::TextureImage,
-    vertex::{Vertex, VertexSelected},
+    vertex::{VertexWithTextureCoords, VertexSelected},
     viewport::Viewport,
 };
 use color_eyre::Result;
@@ -100,7 +100,7 @@ fn render_pipeline(
             module: &shader,
             entry_point: "vs_main",
             buffers: &[VertexBufferLayout {
-                array_stride: mem::size_of::<Vertex>() as BufferAddress,
+                array_stride: mem::size_of::<VertexWithTextureCoords>() as BufferAddress,
                 step_mode: InputStepMode::Vertex,
                 attributes: &[
                     VertexAttribute {
@@ -239,7 +239,7 @@ impl WindowMain {
             _ => {}
         }
 
-        self.rewrite_texture();
+        // self.rewrite_texture();
 
         self.viewport.window.request_redraw();
     }
@@ -253,7 +253,7 @@ impl WindowMain {
     pub fn render(&self, device: &Device, queue: &Queue) -> Result<()> {
         let frame = self.viewport.swap_chain.get_current_frame()?.output;
 
-        self.reset_resources(device, queue)?;
+        // self.reset_resources(device, queue)?;
 
         let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
 

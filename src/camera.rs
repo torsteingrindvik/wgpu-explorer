@@ -27,13 +27,15 @@ impl Default for Camera {
             x: 0.0,
             y: 0.0,
 
-            viewing_distance: 0.25,
+            viewing_distance: 0.8,
 
             // Straight "up"
             viewing_angle: consts::FRAC_PI_2,
+
             viewing_dir: Vec2::new_from_angle(consts::FRAC_PI_2),
 
-            fov: consts::FRAC_PI_4,
+            fov: consts::FRAC_PI_2,
+            // fov: consts::FRAC_PI_2,
         }
     }
 }

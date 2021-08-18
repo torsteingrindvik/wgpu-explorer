@@ -16,16 +16,28 @@ impl Default for VertexSelected {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable, Default)]
-pub struct Vertex {
+pub struct VertexWithTextureCoords {
     pub pos: [f32; 2],
     pub tc: [f32; 2],
 }
 
-impl Vertex {
+impl VertexWithTextureCoords {
     pub fn new(x: f32, y: f32, tx: f32, ty: f32) -> Self {
         Self {
             pos: [x, y],
             tc: [tx, ty],
         }
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable, Default)]
+pub struct Vertex {
+    pub pos: [f32; 2],
+}
+
+impl Vertex {
+    pub fn new(x: f32, y: f32) -> Self {
+        Self { pos: [x, y] }
     }
 }

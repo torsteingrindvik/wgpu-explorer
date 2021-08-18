@@ -7,23 +7,23 @@ use wgpu::{
 
 use crate::{
     misc::{self, Direction},
-    vertex::{Vertex, VertexSelected},
+    vertex::{VertexWithTextureCoords, VertexSelected},
 };
 
 #[derive(Debug)]
 pub struct Square {
-    pub vertices: [Vertex; 4],
+    pub vertices: [VertexWithTextureCoords; 4],
     pub indices: [u16; 6],
     pub selected: VertexSelected,
 }
 
 impl Square {
     /// Given vertices in clockwise order, sets up the rest.
-    pub fn new_from_vertices(vertices: [Vertex; 4]) -> Self {
+    pub fn new_from_vertices(vertices: [VertexWithTextureCoords; 4]) -> Self {
         Square::new(vertices, [0, 1, 3, 3, 1, 2], VertexSelected::One)
     }
 
-    pub fn new(vertices: [Vertex; 4], indices: [u16; 6], selected: VertexSelected) -> Self {
+    pub fn new(vertices: [VertexWithTextureCoords; 4], indices: [u16; 6], selected: VertexSelected) -> Self {
         Self {
             vertices,
             indices,
@@ -65,16 +65,16 @@ impl Square {
 impl Default for Square {
     fn default() -> Self {
         Square::new_from_vertices([
-            Vertex::new(-0.8, 0.8, 0.0, 0.0),
-            Vertex::new(0.8, 0.8, 1.0, 0.0),
-            Vertex::new(0.8, -0.8, 1.0, 1.0),
-            Vertex::new(-0.8, -0.8, 0.0, 1.0),
+            VertexWithTextureCoords::new(-0.8, 0.8, 0.0, 0.0),
+            VertexWithTextureCoords::new(0.8, 0.8, 1.0, 0.0),
+            VertexWithTextureCoords::new(0.8, -0.8, 1.0, 1.0),
+            VertexWithTextureCoords::new(-0.8, -0.8, 0.0, 1.0),
         ])
     }
 }
 
 impl Index<VertexSelected> for Square {
-    type Output = Vertex;
+    type Output = VertexWithTextureCoords;
 
     fn index(&self, vertex: VertexSelected) -> &Self::Output {
         match vertex {
