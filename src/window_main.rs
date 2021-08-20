@@ -24,14 +24,26 @@ pub struct WindowMain {
     pub displace_amount: f32,
     pub camera: Camera,
 }
+fn sampler(device: &Device) -> Sampler {
+    device.create_sampler(&SamplerDescriptor {
+        label: Some("Main sampler"),
+        address_mode_u: AddressMode::ClampToEdge,
+        address_mode_v: AddressMode::ClampToEdge,
+        address_mode_w: AddressMode::ClampToEdge,
+        mag_filter: FilterMode::Nearest,
+        min_filter: FilterMode::Nearest,
+        mipmap_filter: FilterMode::Nearest,
+        ..Default::default()
+    })
+}
 
 fn bind_group_layout(device: &Device) -> BindGroupLayout {
     device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-        label: None,
+        label: Some("Main bind group layout"),
         entries: &[
             BindGroupLayoutEntry {
                 binding: 0,
-                visibility: ShaderStage::FRAGMENT,
+                visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Texture {
                     sample_type: TextureSampleType::Float { filterable: true },
                     view_dimension: TextureViewDimension::D2,
@@ -41,7 +53,7 @@ fn bind_group_layout(device: &Device) -> BindGroupLayout {
             },
             BindGroupLayoutEntry {
                 binding: 1,
-                visibility: ShaderStage::FRAGMENT,
+                visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Sampler {
                     filtering: true,
                     comparison: false,
@@ -76,7 +88,7 @@ fn bind_group(
 
 fn pipeline_layout(device: &Device, bind_group_layout: &BindGroupLayout) -> PipelineLayout {
     device.create_pipeline_layout(&PipelineLayoutDescriptor {
-        label: None,
+        label: Some("Main pipeline layout"),
         bind_group_layouts: &[bind_group_layout],
         push_constant_ranges: &[],
     })
@@ -88,20 +100,19 @@ fn render_pipeline(
     format: &TextureFormat,
 ) -> RenderPipeline {
     let shader = device.create_shader_module(&ShaderModuleDescriptor {
-        label: None,
-        source: ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
-        flags: ShaderFlags::default(),
+        label: Some("Main shader"),
+        source: ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/main.wgsl"))),
     });
 
     device.create_render_pipeline(&RenderPipelineDescriptor {
-        label: None,
+        label: Some("Main render pipeline"),
         layout: Some(pipeline_layout),
         vertex: VertexState {
             module: &shader,
             entry_point: "vs_main",
             buffers: &[VertexBufferLayout {
                 array_stride: mem::size_of::<Vertex>() as BufferAddress,
-                step_mode: InputStepMode::Vertex,
+                step_mode: VertexStepMode::Vertex,
                 attributes: &[
                     VertexAttribute {
                         format: VertexFormat::Float32x2,
@@ -167,16 +178,13 @@ impl WindowMain {
         // 4 bytes per point: rgba
         let data: Vec<u8> = vec![0; width * height * 4];
 
-        let image = TextureImage::new(device, width, height, &data)?;
+        let image = TextureImage::new("Main texture image", device, width, height, &data)?;
 
         let camera = Camera::default();
 
-        let bind_group = bind_group(
-            device,
-            &bind_group_layout,
-            &image.texture_view,
-            &image.sampler,
-        );
+        let sampler = sampler(device);
+
+        let bind_group = bind_group(device, &bind_group_layout, &image.texture_view, &sampler);
 
         let pipeline_layout = pipeline_layout(device, &bind_group_layout);
         let render_pipeline = render_pipeline(device, &pipeline_layout, texture_format);
@@ -244,27 +252,30 @@ impl WindowMain {
         self.viewport.window.request_redraw();
     }
 
-    fn reset_resources(&self, _device: &Device, queue: &Queue) -> Result<()> {
+    pub fn push_resources(&self, queue: &Queue) -> Result<()> {
         self.image.write(queue);
 
         Ok(())
     }
 
     pub fn render(&self, device: &Device, queue: &Queue) -> Result<()> {
-        let frame = self.viewport.swap_chain.get_current_frame()?.output;
+        let surface_texture = self.viewport.surface.get_current_frame()?.output;
+        let texture_view = surface_texture
+            .texture
+            .create_view(&TextureViewDescriptor::default());
 
-        self.reset_resources(device, queue)?;
-
-        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
+        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("Main command encoder"),
+        });
 
         let index_buffer = self.square.index_buffer(device);
         let vertex_buffer = self.square.vertex_buffer(device);
 
         {
             let mut rpass = encoder.begin_render_pass(&RenderPassDescriptor {
-                label: None,
+                label: Some("Main render pass"),
                 color_attachments: &[RenderPassColorAttachment {
-                    view: &frame.view,
+                    view: &texture_view,
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(Color {

@@ -2,7 +2,7 @@ use std::ops::{Index, IndexMut};
 
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
-    Buffer, BufferUsage, Device,
+    Buffer, BufferUsages, Device,
 };
 
 use crate::{
@@ -44,7 +44,7 @@ impl Square {
         device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Vertex buffer :)"),
             contents: bytemuck::cast_slice(&self.vertices),
-            usage: BufferUsage::VERTEX,
+            usage: BufferUsages::VERTEX,
         })
     }
 
@@ -52,7 +52,7 @@ impl Square {
         device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Index buffer :)"),
             contents: bytemuck::cast_slice(&self.indices),
-            usage: BufferUsage::INDEX,
+            usage: BufferUsages::INDEX,
         })
     }
 

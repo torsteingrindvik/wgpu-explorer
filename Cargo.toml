@@ -2,6 +2,7 @@
 name = "wgpu-explorer"
 version = "0.1.0"
 edition = "2018"
+resolver = "2"
 
 [dependencies]
 # Error handling
@@ -15,7 +16,7 @@ log = "0.4.14"
 pollster = "0.2.4"
 
 # GPU rendering
-wgpu = "0.9.0"
+wgpu = "0.10"
 
 # Window handling
 winit = "0.25.0"

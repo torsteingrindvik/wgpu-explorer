@@ -18,11 +18,11 @@ pub struct WindowExtra {
 
 fn bind_group_layout(device: &Device) -> BindGroupLayout {
     device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-        label: None,
+        label: Some("Extra window bind group layout"),
         entries: &[
             BindGroupLayoutEntry {
                 binding: 0,
-                visibility: ShaderStage::FRAGMENT,
+                visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Texture {
                     sample_type: TextureSampleType::Float { filterable: true },
                     view_dimension: TextureViewDimension::D2,
@@ -32,7 +32,7 @@ fn bind_group_layout(device: &Device) -> BindGroupLayout {
             },
             BindGroupLayoutEntry {
                 binding: 1,
-                visibility: ShaderStage::FRAGMENT,
+                visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Sampler {
                     filtering: true,
                     comparison: false,
@@ -67,7 +67,7 @@ fn bind_group(
 
 fn pipeline_layout(device: &Device, bind_group_layout: &BindGroupLayout) -> PipelineLayout {
     device.create_pipeline_layout(&PipelineLayoutDescriptor {
-        label: None,
+        label: Some("Extra window pipeline layout"),
         bind_group_layouts: &[bind_group_layout],
         push_constant_ranges: &[],
     })
@@ -79,20 +79,19 @@ fn render_pipeline(
     format: &TextureFormat,
 ) -> RenderPipeline {
     let shader = device.create_shader_module(&ShaderModuleDescriptor {
-        label: None,
-        source: ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
-        flags: ShaderFlags::default(),
+        label: Some("Extra shader"),
+        source: ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/extra.wgsl"))),
     });
 
     device.create_render_pipeline(&RenderPipelineDescriptor {
-        label: None,
+        label: Some("Extra render pipeline"),
         layout: Some(pipeline_layout),
         vertex: VertexState {
             module: &shader,
             entry_point: "vs_main",
             buffers: &[VertexBufferLayout {
                 array_stride: mem::size_of::<Vertex>() as BufferAddress,
-                step_mode: InputStepMode::Vertex,
+                step_mode: VertexStepMode::Vertex,
                 attributes: &[
                     VertexAttribute {
                         format: VertexFormat::Float32x2,
@@ -118,6 +117,19 @@ fn render_pipeline(
     })
 }
 
+fn sampler(device: &Device) -> Sampler {
+    device.create_sampler(&SamplerDescriptor {
+        label: Some("Extra sampler"),
+        address_mode_u: AddressMode::ClampToEdge,
+        address_mode_v: AddressMode::ClampToEdge,
+        address_mode_w: AddressMode::ClampToEdge,
+        mag_filter: FilterMode::Nearest,
+        min_filter: FilterMode::Nearest,
+        mipmap_filter: FilterMode::Nearest,
+        ..Default::default()
+    })
+}
+
 impl WindowExtra {
     pub fn new(
         viewport: Viewport,
@@ -125,32 +137,27 @@ impl WindowExtra {
         queue: &Queue,
         texture_format: &TextureFormat,
     ) -> Result<Self> {
-        let bind_group_layout = bind_group_layout(device);
+        let layout = bind_group_layout(device);
 
         let left_image = TextureImage::new_from_path(
+            "aztec diffuse image",
             device,
             concat!(env!("CARGO_MANIFEST_DIR"), "/src/aztec-diffuse.png"),
         )?;
+
         let right_image = TextureImage::new_from_path(
+            "aztec height image",
             device,
             concat!(env!("CARGO_MANIFEST_DIR"), "/src/aztec-height.png"),
         )?;
 
-        let left_bind_group = bind_group(
-            device,
-            &bind_group_layout,
-            &left_image.texture_view,
-            &left_image.sampler,
-        );
+        let sampler = sampler(device);
 
-        let right_bind_group = bind_group(
-            device,
-            &bind_group_layout,
-            &right_image.texture_view,
-            &right_image.sampler,
-        );
+        let left_bind_group = bind_group(device, &layout, &left_image.texture_view, &sampler);
 
-        let pipeline_layout = pipeline_layout(device, &bind_group_layout);
+        let right_bind_group = bind_group(device, &layout, &right_image.texture_view, &sampler);
+
+        let pipeline_layout = pipeline_layout(device, &layout);
         let render_pipeline = render_pipeline(device, &pipeline_layout, texture_format);
 
         let left_square = Square::new_from_vertices([
@@ -199,22 +206,22 @@ impl WindowExtra {
         Ok(())
     }
 
-    fn render_square(
+    fn render_extra(
         &self,
         square: &Square,
         bind_group: &BindGroup,
         device: &Device,
         encoder: &mut CommandEncoder,
-        frame: &SwapChainTexture,
+        texture_view: &TextureView,
     ) {
         let index_buffer = square.index_buffer(device);
         let vertex_buffer = square.vertex_buffer(device);
 
         {
             let mut rpass = encoder.begin_render_pass(&RenderPassDescriptor {
-                label: None,
+                label: Some("Extra render pass"),
                 color_attachments: &[RenderPassColorAttachment {
-                    view: &frame.view,
+                    view: texture_view,
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Load,
@@ -234,24 +241,29 @@ impl WindowExtra {
     }
 
     pub fn render(&self, device: &Device, queue: &Queue) -> Result<()> {
-        let frame = self.viewport.swap_chain.get_current_frame()?.output;
+        let surface_texture = self.viewport.surface.get_current_frame()?.output;
+        let texture_view = surface_texture
+            .texture
+            .create_view(&TextureViewDescriptor::default());
 
-        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor { label: None });
+        let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
+            label: Some("Extra command encoder"),
+        });
 
-        self.render_square(
+        self.render_extra(
             &self.left_square,
             &self.left_bind_group,
             device,
             &mut encoder,
-            &frame,
+            &texture_view,
         );
 
-        self.render_square(
+        self.render_extra(
             &self.right_square,
             &self.right_bind_group,
             device,
             &mut encoder,
-            &frame,
+            &texture_view,
         );
 
         queue.submit(Some(encoder.finish()));

@@ -1,17 +1,35 @@
 use color_eyre::{eyre::ContextCompat, Result};
-use wgpu::{
-    Adapter, Device, Instance, PresentMode, Surface, SwapChain, SwapChainDescriptor, TextureUsage,
-};
+use wgpu::{Adapter, Device, Instance, PresentMode, Surface, SurfaceConfiguration, TextureUsages};
 use winit::{dpi::PhysicalSize, window::Window};
 
 pub struct Viewport {
     pub window: Window,
     pub surface: Surface,
-    pub swap_chain_descriptor: SwapChainDescriptor,
-    pub swap_chain: SwapChain,
 }
 
 impl Viewport {
+    fn configure_surface(
+        &mut self,
+        device: &Device,
+        adapter: &Adapter,
+        width: u32,
+        height: u32,
+    ) -> Result<()> {
+        let config = SurfaceConfiguration {
+            usage: TextureUsages::RENDER_ATTACHMENT,
+            format: self
+                .surface
+                .get_preferred_format(adapter)
+                .wrap_err("No preferred format")?,
+            width,
+            height,
+            present_mode: PresentMode::Fifo,
+        };
+        self.surface.configure(device, &config);
+
+        Ok(())
+    }
+
     pub fn new(
         window: Window,
         instance: &Instance,
@@ -21,30 +39,14 @@ impl Viewport {
         let surface = unsafe { instance.create_surface(&window) };
 
         let size = window.inner_size();
-        let swap_chain_descriptor = SwapChainDescriptor {
-            usage: TextureUsage::RENDER_ATTACHMENT,
-            format: adapter
-                .get_swap_chain_preferred_format(&surface)
-                .wrap_err("No preferred format")?,
-            width: size.width,
-            height: size.height,
-            present_mode: PresentMode::Fifo,
-        };
+        let mut new_self = Self { window, surface };
+        new_self.configure_surface(device, adapter, size.width, size.height)?;
 
-        let swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
-
-        Ok(Self {
-            window,
-            surface,
-            swap_chain_descriptor,
-            swap_chain,
-        })
+        Ok(new_self)
     }
 
-    pub fn resize(&mut self, device: &Device, size: PhysicalSize<u32>) {
-        self.swap_chain_descriptor.width = size.width;
-        self.swap_chain_descriptor.height = size.height;
-
-        self.swap_chain = device.create_swap_chain(&self.surface, &self.swap_chain_descriptor);
+    pub fn resize(&mut self, adapter: &Adapter, device: &Device, size: PhysicalSize<u32>) {
+        self.configure_surface(device, adapter, size.width, size.height)
+            .unwrap();
     }
 }

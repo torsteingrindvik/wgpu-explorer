@@ -5,7 +5,7 @@ use wgpu::*;
 use window_extra::WindowExtra;
 use window_main::WindowMain;
 use winit::{
-    dpi::{PhysicalPosition, PhysicalSize},
+    dpi::PhysicalPosition,
     event::{Event, KeyboardInput, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::Window,
@@ -23,17 +23,17 @@ mod vertex;
 mod viewport;
 
 async fn run() -> Result<()> {
-    let instance = Instance::new(BackendBit::PRIMARY);
+    let instance = Instance::new(Backends::PRIMARY);
 
     let event_loop = EventLoop::new();
 
-    let window_main = Window::new(&event_loop)?;
-    window_main.set_inner_size(PhysicalSize::new(800, 800));
-    window_main.set_outer_position(PhysicalPosition::new(0.0, 300.0));
-
     let window_extra = Window::new(&event_loop)?;
-    window_extra.set_inner_size(PhysicalSize::new(1600, 800));
-    window_extra.set_outer_position(PhysicalPosition::new(800.0, 300.0));
+    // window_extra.set_inner_size(PhysicalSize::new(1200, 600));
+    window_extra.set_outer_position(PhysicalPosition::new(400.0, 300.0));
+
+    let window_main = Window::new(&event_loop)?;
+    // window_main.set_inner_size(PhysicalSize::new(600, 600));
+    window_main.set_outer_position(PhysicalPosition::new(0.0, 300.0));
 
     let surface = unsafe { instance.create_surface(&window_main) };
     let adapter = instance
@@ -53,8 +53,8 @@ async fn run() -> Result<()> {
         )
         .await?;
 
-    let texture_format = adapter
-        .get_swap_chain_preferred_format(&surface)
+    let texture_format = surface
+        .get_preferred_format(&adapter)
         .wrap_err("No preferred format for swap chain")?;
 
     let mut main = WindowMain::new(
@@ -85,9 +85,9 @@ async fn run() -> Result<()> {
                 debug!("Resize: {:?}, id: {:?}", size, window_id);
 
                 if window_id == main.viewport.window.id() {
-                    main.viewport.resize(&device, size);
+                    main.viewport.resize(&adapter, &device, size);
                 } else if window_id == extra.viewport.window.id() {
-                    extra.viewport.resize(&device, size);
+                    extra.viewport.resize(&adapter, &device, size);
                 } else {
                     panic!("OTHER WINDOW???");
                 }
@@ -110,6 +110,7 @@ async fn run() -> Result<()> {
 
                 if window_id == main.viewport.window.id() {
                     main.handle_key(key);
+                    main.push_resources(&queue).unwrap();
                 } else if window_id == extra.viewport.window.id() {
                     extra.handle_key(key);
                 } else {
