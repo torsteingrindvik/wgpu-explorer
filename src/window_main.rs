@@ -1,15 +1,20 @@
-use std::{borrow::Cow, mem};
+use std::{
+    borrow::Cow,
+    f32::consts::FRAC_PI_3,
+    mem,
+    path::{Path, PathBuf},
+};
 
 use crate::{
     camera::Camera,
     misc::Direction,
+    radar::{self, RadarUniform},
     square::Square,
     texture_image::TextureImage,
     vertex::{Vertex, VertexSelected},
     viewport::Viewport,
 };
 use color_eyre::Result;
-use log::debug;
 use wgpu::*;
 use winit::event::VirtualKeyCode;
 
@@ -23,66 +28,86 @@ pub struct WindowMain {
     pub image: TextureImage,
     pub displace_amount: f32,
     pub camera: Camera,
-}
-fn sampler(device: &Device) -> Sampler {
-    device.create_sampler(&SamplerDescriptor {
-        label: Some("Main sampler"),
-        address_mode_u: AddressMode::ClampToEdge,
-        address_mode_v: AddressMode::ClampToEdge,
-        address_mode_w: AddressMode::ClampToEdge,
-        mag_filter: FilterMode::Nearest,
-        min_filter: FilterMode::Nearest,
-        mipmap_filter: FilterMode::Nearest,
-        ..Default::default()
-    })
+    pub radar: RadarUniform,
+    pub radar_buffer: Buffer,
+    pub texture_format: TextureFormat,
+    pub shader_path: PathBuf,
 }
 
-fn bind_group_layout(device: &Device) -> BindGroupLayout {
+// fn sampler(device: &Device) -> Sampler {
+//     device.create_sampler(&SamplerDescriptor {
+//         label: Some("Main sampler"),
+//         address_mode_u: AddressMode::ClampToEdge,
+//         address_mode_v: AddressMode::ClampToEdge,
+//         address_mode_w: AddressMode::ClampToEdge,
+//         mag_filter: FilterMode::Nearest,
+//         min_filter: FilterMode::Nearest,
+//         mipmap_filter: FilterMode::Nearest,
+//         ..Default::default()
+//     })
+// }
+
+fn bind_group_layout(device: &Device, radar: &RadarUniform) -> BindGroupLayout {
+    // device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+    //     label: Some("Main bind group layout"),
+    //     entries: &[
+    //         BindGroupLayoutEntry {
+    //             binding: 0,
+    //             visibility: ShaderStages::FRAGMENT,
+    //             ty: BindingType::Texture {
+    //                 sample_type: TextureSampleType::Float { filterable: true },
+    //                 view_dimension: TextureViewDimension::D2,
+    //                 multisampled: false,
+    //             },
+    //             count: None,
+    //         },
+    //         BindGroupLayoutEntry {
+    //             binding: 1,
+    //             visibility: ShaderStages::FRAGMENT,
+    //             ty: BindingType::Sampler {
+    //                 filtering: true,
+    //                 comparison: false,
+    //             },
+    //             count: None,
+    //         },
+    //     ],
+    // })
     device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-        label: Some("Main bind group layout"),
-        entries: &[
-            BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    sample_type: TextureSampleType::Float { filterable: true },
-                    view_dimension: TextureViewDimension::D2,
-                    multisampled: false,
-                },
-                count: None,
-            },
-            BindGroupLayoutEntry {
-                binding: 1,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Sampler {
-                    filtering: true,
-                    comparison: false,
-                },
-                count: None,
-            },
-        ],
+        label: Some("Radar layout"),
+        entries: &[radar.bind_group_layout_entry(0)],
+        // entries,
     })
 }
 
 fn bind_group(
     device: &Device,
     layout: &BindGroupLayout,
-    texture_view: &TextureView,
-    sampler: &Sampler,
+    // texture_view: &TextureView,
+    // sampler: &Sampler,
+    radar: &RadarUniform,
 ) -> BindGroup {
+    // device.create_bind_group(&BindGroupDescriptor {
+    //     label: Some("Main window bind group"),
+    //     layout,
+    //     entries: &[
+    //         BindGroupEntry {
+    //             binding: 0,
+    //             resource: BindingResource::TextureView(texture_view),
+    //         },
+    //         BindGroupEntry {
+    //             binding: 1,
+    //             resource: BindingResource::Sampler(sampler),
+    //         },
+    //     ],
+    // })
+    let radar_buffer = device.create_buffer(&radar.buffer_descriptor());
     device.create_bind_group(&BindGroupDescriptor {
-        label: Some("Main window bind group"),
+        label: Some("Radar bind group"),
         layout,
-        entries: &[
-            BindGroupEntry {
-                binding: 0,
-                resource: BindingResource::TextureView(texture_view),
-            },
-            BindGroupEntry {
-                binding: 1,
-                resource: BindingResource::Sampler(sampler),
-            },
-        ],
+        entries: &[BindGroupEntry {
+            binding: 0,
+            resource: radar_buffer.as_entire_binding(),
+        }],
     })
 }
 
@@ -96,14 +121,10 @@ fn pipeline_layout(device: &Device, bind_group_layout: &BindGroupLayout) -> Pipe
 
 fn render_pipeline(
     device: &Device,
+    shader: &ShaderModule,
     pipeline_layout: &PipelineLayout,
     format: &TextureFormat,
 ) -> RenderPipeline {
-    let shader = device.create_shader_module(&ShaderModuleDescriptor {
-        label: Some("Main shader"),
-        source: ShaderSource::Wgsl(Cow::Borrowed(include_str!("shaders/main.wgsl"))),
-    });
-
     device.create_render_pipeline(&RenderPipelineDescriptor {
         label: Some("Main render pipeline"),
         layout: Some(pipeline_layout),
@@ -139,37 +160,48 @@ fn render_pipeline(
 }
 
 impl WindowMain {
-    fn rewrite_texture(&mut self) {
-        let w = self.image.extent.width as usize;
-        let h = self.image.extent.height as usize;
+    // fn rewrite_texture(&mut self) {
+    //     let w = self.image.extent.width as usize;
+    //     let h = self.image.extent.height as usize;
 
-        debug!("w,h: {:?}", &(w, h));
+    //     debug!("w,h: {:?}", &(w, h));
 
-        for x in 0..w {
-            for y in 0..h {
-                let widthf = w as f32;
-                let heightf = h as f32;
-                let xf = x as f32;
-                let yf = y as f32;
+    //     for x in 0..w {
+    //         for y in 0..h {
+    //             let widthf = w as f32;
+    //             let heightf = h as f32;
+    //             let xf = x as f32;
+    //             let yf = y as f32;
 
-                let xf = (-widthf + 2.0 * xf) / widthf;
-                let yf = -(-heightf + 2.0 * yf) / heightf;
+    //             let xf = (-widthf + 2.0 * xf) / widthf;
+    //             let yf = -(-heightf + 2.0 * yf) / heightf;
 
-                if self.camera.within_view(xf, yf) {
-                    self.image.set_pixel(x, y, Color::BLUE);
-                } else {
-                    self.image.set_pixel(x, y, Color::BLACK);
-                }
-            }
-        }
-    }
+    //             if self.camera.within_view(xf, yf) {
+    //                 self.image.set_pixel(x, y, Color::BLUE);
+    //             } else {
+    //                 self.image.set_pixel(x, y, Color::BLACK);
+    //             }
+    //         }
+    //     }
+    // }
 
     pub fn new(
         viewport: Viewport,
         device: &Device,
         texture_format: &TextureFormat,
     ) -> Result<Self> {
-        let bind_group_layout = bind_group_layout(device);
+        // let bind_group_layout = bind_group_layout(device);
+        let texture_format = *texture_format;
+        let radar = radar::RadarUniform {
+            fov: [FRAC_PI_3, 0.0],
+            view_dir: [0.0, 1.0],
+            position: [0.0, 0.0],
+        };
+        // let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        //     label: Some("Radar layout"),
+        //     entries: &[radar.bind_group_layout_entry(0)],
+        // });
+        let bind_group_layout = bind_group_layout(device, &radar);
 
         let size = 512;
         let width = size;
@@ -177,23 +209,26 @@ impl WindowMain {
 
         // 4 bytes per point: rgba
         let data: Vec<u8> = vec![0; width * height * 4];
-
         let image = TextureImage::new("Main texture image", device, width, height, &data)?;
-
         let camera = Camera::default();
 
-        let sampler = sampler(device);
-
-        let bind_group = bind_group(device, &bind_group_layout, &image.texture_view, &sampler);
+        let radar_buffer = device.create_buffer(&radar.buffer_descriptor());
+        let bind_group = bind_group(device, &bind_group_layout, &radar);
 
         let pipeline_layout = pipeline_layout(device, &bind_group_layout);
-        let render_pipeline = render_pipeline(device, &pipeline_layout, texture_format);
+        let shader_path = PathBuf::from(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/src/shaders/radar.wgsl"
+        ));
+        let shader = Self::load_shader(&shader_path, device)?;
+
+        let render_pipeline = render_pipeline(device, &shader, &pipeline_layout, &texture_format);
 
         let square = Square::default();
 
         let displace_amount = 0.05;
 
-        let mut new_self = Self {
+        Ok(Self {
             viewport,
             square,
             render_pipeline,
@@ -201,10 +236,11 @@ impl WindowMain {
             image,
             displace_amount,
             camera,
-        };
-
-        new_self.rewrite_texture();
-        Ok(new_self)
+            radar,
+            radar_buffer,
+            texture_format,
+            shader_path,
+        })
     }
 
     pub fn handle_key(&mut self, key: VirtualKeyCode) {
@@ -247,16 +283,16 @@ impl WindowMain {
             _ => {}
         }
 
-        self.rewrite_texture();
+        // self.rewrite_texture();
 
         self.viewport.window.request_redraw();
     }
 
-    pub fn push_resources(&self, queue: &Queue) -> Result<()> {
-        self.image.write(queue);
+    // pub fn push_resources(&self, queue: &Queue) -> Result<()> {
+    //     self.image.write(queue);
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     pub fn render(&self, device: &Device, queue: &Queue) -> Result<()> {
         let surface_texture = self.viewport.surface.get_current_frame()?.output;
@@ -267,6 +303,8 @@ impl WindowMain {
         let mut encoder = device.create_command_encoder(&CommandEncoderDescriptor {
             label: Some("Main command encoder"),
         });
+
+        queue.write_buffer(&self.radar_buffer, 0, bytemuck::bytes_of(&self.radar));
 
         let index_buffer = self.square.index_buffer(device);
         let vertex_buffer = self.square.vertex_buffer(device);
@@ -299,6 +337,30 @@ impl WindowMain {
         }
 
         queue.submit(Some(encoder.finish()));
+
+        Ok(())
+    }
+
+    fn load_shader<P: AsRef<Path>>(path: P, device: &Device) -> Result<ShaderModule> {
+        let wgsl = std::fs::read_to_string(path)?;
+        naga::front::wgsl::parse_str(&wgsl)?;
+
+        let shader = device.create_shader_module(&ShaderModuleDescriptor {
+            label: Some("Main/radar shader"),
+            source: ShaderSource::Wgsl(Cow::Borrowed(&wgsl)),
+        });
+
+        Ok(shader)
+    }
+
+    pub fn reload_shader(&mut self, device: &Device) -> Result<()> {
+        let shader = Self::load_shader(&self.shader_path, device)?;
+
+        let bind_group_layout = bind_group_layout(device, &self.radar);
+        let pipeline_layout = pipeline_layout(device, &bind_group_layout);
+        let format = self.texture_format;
+
+        self.render_pipeline = render_pipeline(device, &shader, &pipeline_layout, &format);
 
         Ok(())
     }

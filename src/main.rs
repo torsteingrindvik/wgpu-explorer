@@ -1,5 +1,11 @@
+use std::{
+    sync::mpsc,
+    time::{Duration, Instant},
+};
+
 use color_eyre::{eyre::ContextCompat, Result};
 use log::debug;
+use notify::RecursiveMode;
 use viewport::Viewport;
 use wgpu::*;
 use window_extra::WindowExtra;
@@ -16,6 +22,7 @@ mod window_main;
 
 mod camera;
 mod misc;
+mod radar;
 mod square;
 mod texture_image;
 mod vec;
@@ -71,10 +78,29 @@ async fn run() -> Result<()> {
         &texture_format,
     )?;
 
+    let (watch_tx, watch_rx) = mpsc::channel();
+    let mut shader_watcher = notify::watcher(watch_tx, Duration::from_millis(250))?;
+
+    use notify::Watcher;
+    shader_watcher.watch(
+        // concat!(env!("CARGO_MANIFEST_DIR"), "/src/shaders/radar.wgsl"),
+        &main.shader_path,
+        RecursiveMode::NonRecursive,
+    )?;
+
     event_loop.run(move |event, _, control_flow| {
         let _ = (&instance, &adapter);
 
-        *control_flow = ControlFlow::Wait;
+        *control_flow = ControlFlow::WaitUntil(Instant::now() + Duration::from_millis(250));
+        use notify::DebouncedEvent;
+
+        if let Ok(DebouncedEvent::Write(_)) = watch_rx.try_recv() {
+            if let Err(e) = main.reload_shader(&device) {
+                eprintln!("Error reloading shader: {:#?}", e);
+            } else {
+                main.viewport.window.request_redraw();
+            }
+        }
 
         match event {
             Event::WindowEvent {
@@ -110,7 +136,7 @@ async fn run() -> Result<()> {
 
                 if window_id == main.viewport.window.id() {
                     main.handle_key(key);
-                    main.push_resources(&queue).unwrap();
+                    // main.push_resources(&queue).unwrap();
                 } else if window_id == extra.viewport.window.id() {
                     extra.handle_key(key);
                 } else {

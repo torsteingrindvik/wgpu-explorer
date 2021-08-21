@@ -16,12 +16,12 @@ impl Vec2 {
     }
 
     // Creates a vector pointing from v1 to v2
-    pub fn new_from_points(x1: f32, y1: f32, x2: f32, y2: f32) -> Self {
-        Self {
-            x: x2 - x1,
-            y: y2 - y1,
-        }
-    }
+    // pub fn new_from_points(x1: f32, y1: f32, x2: f32, y2: f32) -> Self {
+    //     Self {
+    //         x: x2 - x1,
+    //         y: y2 - y1,
+    //     }
+    // }
 
     pub fn to_normalized(&self) -> Self {
         let magnitude = self.magnitude();
@@ -39,11 +39,11 @@ impl Vec2 {
         self.x.hypot(self.y)
     }
 
-    pub fn dot(&self, other: &Self) -> f32 {
-        self.x * other.x + self.y * other.y
-    }
+    // pub fn dot(&self, other: &Self) -> f32 {
+    //     self.x * other.x + self.y * other.y
+    // }
 
-    pub fn angle_other(&self, other: &Self) -> f32 {
-        (self.dot(other) / (self.magnitude() * other.magnitude())).acos()
-    }
+    // pub fn angle_other(&self, other: &Self) -> f32 {
+    //     (self.dot(other) / (self.magnitude() * other.magnitude())).acos()
+    // }
 }

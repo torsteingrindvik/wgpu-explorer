@@ -1,13 +1,7 @@
-struct VertexStageOutput {
-    [[builtin(position)]] position: vec4<f32>;
-    [[location(0)]] tex_coords: vec2<f32>;
-};
 
 [[stage(vertex)]]
 fn vs_main(
-	[[builtin(vertex_index)]] in_vertex_index: u32,
 	[[location(0)]] in_position: vec2<f32>,
-	[[location(1)]] in_tex_coords: vec2<f32>,
 ) -> VertexStageOutput {
 	var out: VertexStageOutput;
 

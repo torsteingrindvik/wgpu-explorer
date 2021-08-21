@@ -2,8 +2,8 @@ use color_eyre::Result;
 use image::GenericImageView;
 use std::{fs::File, io::BufReader, num::NonZeroU32};
 use wgpu::{
-    Color, Device, Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, Queue, Texture,
-    TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
+    Device, Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, Queue, Texture, TextureAspect,
+    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
     TextureViewDescriptor,
 };
 
@@ -86,31 +86,31 @@ impl TextureImage {
         )
     }
 
-    fn size_of_pixel() -> usize {
-        4
-    }
+    // fn size_of_pixel() -> usize {
+    //     4
+    // }
 
-    fn color_to_rgba(color: &Color) -> (u8, u8, u8, u8) {
-        (
-            (color.r * 256.0) as u8,
-            (color.g * 256.0) as u8,
-            (color.b * 256.0) as u8,
-            (color.a * 256.0) as u8,
-        )
-    }
+    // fn color_to_rgba(color: &Color) -> (u8, u8, u8, u8) {
+    //     (
+    //         (color.r * 256.0) as u8,
+    //         (color.g * 256.0) as u8,
+    //         (color.b * 256.0) as u8,
+    //         (color.a * 256.0) as u8,
+    //     )
+    // }
 
-    pub fn set_pixel(&mut self, x: usize, y: usize, color: Color) {
-        let pixel_size = Self::size_of_pixel();
+    // pub fn set_pixel(&mut self, x: usize, y: usize, color: Color) {
+    //     let pixel_size = Self::size_of_pixel();
 
-        let column_size = pixel_size;
-        let row_size = self.extent.width as usize * column_size;
+    //     let column_size = pixel_size;
+    //     let row_size = self.extent.width as usize * column_size;
 
-        let pos = (x * column_size) + (y * row_size);
+    //     let pos = (x * column_size) + (y * row_size);
 
-        let (red, green, blue, alpha) = Self::color_to_rgba(&color);
-        self.data[pos] = red;
-        self.data[pos + 1] = green;
-        self.data[pos + 2] = blue;
-        self.data[pos + 3] = alpha;
-    }
+    //     let (red, green, blue, alpha) = Self::color_to_rgba(&color);
+    //     self.data[pos] = red;
+    //     self.data[pos + 1] = green;
+    //     self.data[pos + 2] = blue;
+    //     self.data[pos + 3] = alpha;
+    // }
 }

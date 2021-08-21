@@ -51,18 +51,18 @@ impl Camera {
         self.y += y;
     }
 
-    pub fn within_view(&self, x: f32, y: f32) -> bool {
-        assert!((-1.0..=1.0).contains(&x));
-        assert!((-1.0..=1.0).contains(&y));
+    // pub fn within_view(&self, x: f32, y: f32) -> bool {
+    //     assert!((-1.0..=1.0).contains(&x));
+    //     assert!((-1.0..=1.0).contains(&y));
 
-        let vec_between = Vec2::new_from_points(self.x, self.y, x, y);
-        let angle_between = self.viewing_dir.angle_other(&vec_between);
+    //     let vec_between = Vec2::new_from_points(self.x, self.y, x, y);
+    //     let angle_between = self.viewing_dir.angle_other(&vec_between);
 
-        let half_fov = self.fov / 2.0;
+    //     let half_fov = self.fov / 2.0;
 
-        let angle_ok = angle_between <= half_fov;
-        let dist_ok = vec_between.magnitude() <= self.viewing_distance;
+    //     let angle_ok = angle_between <= half_fov;
+    //     let dist_ok = vec_between.magnitude() <= self.viewing_distance;
 
-        angle_ok && dist_ok
-    }
+    //     angle_ok && dist_ok
+    // }
 }
