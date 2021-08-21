@@ -9,6 +9,10 @@ impl Vec2 {
         Self { x, y }
     }
 
+    pub fn as_array(&self) -> [f32; 2] {
+        [self.x, self.y]
+    }
+
     // Normalized vector based on some angle
     pub fn new_from_angle(radians: f32) -> Self {
         let v = Self::new(radians.cos(), radians.sin());

@@ -10,12 +10,7 @@ use viewport::Viewport;
 use wgpu::*;
 use window_extra::WindowExtra;
 use window_main::WindowMain;
-use winit::{
-    dpi::PhysicalPosition,
-    event::{Event, KeyboardInput, WindowEvent},
-    event_loop::{ControlFlow, EventLoop},
-    window::Window,
-};
+use winit::{dpi::{PhysicalPosition, PhysicalSize}, event::{Event, KeyboardInput, WindowEvent}, event_loop::{ControlFlow, EventLoop}, window::Window};
 
 mod window_extra;
 mod window_main;
@@ -23,6 +18,7 @@ mod window_main;
 mod camera;
 mod misc;
 mod radar;
+mod resolution;
 mod square;
 mod texture_image;
 mod vec;
@@ -39,7 +35,7 @@ async fn run() -> Result<()> {
     window_extra.set_outer_position(PhysicalPosition::new(400.0, 300.0));
 
     let window_main = Window::new(&event_loop)?;
-    // window_main.set_inner_size(PhysicalSize::new(600, 600));
+    window_main.set_inner_size(PhysicalSize::new(600, 600));
     window_main.set_outer_position(PhysicalPosition::new(0.0, 300.0));
 
     let surface = unsafe { instance.create_surface(&window_main) };
@@ -67,7 +63,7 @@ async fn run() -> Result<()> {
     let mut main = WindowMain::new(
         Viewport::new(window_main, &instance, &adapter, &device)?,
         &device,
-        // &queue,
+        &queue,
         &texture_format,
     )?;
 
@@ -111,7 +107,7 @@ async fn run() -> Result<()> {
                 debug!("Resize: {:?}, id: {:?}", size, window_id);
 
                 if window_id == main.viewport.window.id() {
-                    main.viewport.resize(&adapter, &device, size);
+                    main.resize(&adapter, &device, size);
                 } else if window_id == extra.viewport.window.id() {
                     extra.viewport.resize(&adapter, &device, size);
                 } else {

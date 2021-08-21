@@ -9,6 +9,7 @@ use crate::{
     camera::Camera,
     misc::Direction,
     radar::{self, RadarUniform},
+    resolution::ResolutionUniform,
     square::Square,
     texture_image::TextureImage,
     vertex::{Vertex, VertexSelected},
@@ -28,10 +29,17 @@ pub struct WindowMain {
     pub image: TextureImage,
     pub displace_amount: f32,
     pub camera: Camera,
-    pub radar: RadarUniform,
-    pub radar_buffer: Buffer,
     pub texture_format: TextureFormat,
     pub shader_path: PathBuf,
+
+    pub vertex_buffer: Buffer,
+    pub index_buffer: Buffer,
+
+    pub radar: RadarUniform,
+    pub radar_buffer: Buffer,
+
+    pub resolution: ResolutionUniform,
+    pub resolution_buffer: Buffer,
 }
 
 // fn sampler(device: &Device) -> Sampler {
@@ -47,7 +55,11 @@ pub struct WindowMain {
 //     })
 // }
 
-fn bind_group_layout(device: &Device, radar: &RadarUniform) -> BindGroupLayout {
+fn bind_group_layout(
+    device: &Device,
+    radar: &RadarUniform,
+    resolution: &ResolutionUniform,
+) -> BindGroupLayout {
     // device.create_bind_group_layout(&BindGroupLayoutDescriptor {
     //     label: Some("Main bind group layout"),
     //     entries: &[
@@ -74,7 +86,20 @@ fn bind_group_layout(device: &Device, radar: &RadarUniform) -> BindGroupLayout {
     // })
     device.create_bind_group_layout(&BindGroupLayoutDescriptor {
         label: Some("Radar layout"),
-        entries: &[radar.bind_group_layout_entry(0)],
+        entries: &[
+            radar.bind_group_layout_entry(0),
+            resolution.bind_group_layout_entry(1)
+            // BindGroupLayoutEntry {
+            //     binding: 1,
+            //     visibility: ShaderStages::FRAGMENT,
+            //     ty: BindingType::Buffer {
+            //         ty: BufferBindingType::Uniform,
+            //         has_dynamic_offset: false,
+            //         min_binding_size: BufferSize::new(mem::size_of::<[f32; 2]>() as u64),
+            //     },
+            //     count: None,
+            // },
+        ],
         // entries,
     })
 }
@@ -84,7 +109,10 @@ fn bind_group(
     layout: &BindGroupLayout,
     // texture_view: &TextureView,
     // sampler: &Sampler,
-    radar: &RadarUniform,
+    // radar: &RadarUniform,
+    radar_buffer: &Buffer,
+    // resolution: &ResolutionUniform,
+    resolution_buffer: &Buffer,
 ) -> BindGroup {
     // device.create_bind_group(&BindGroupDescriptor {
     //     label: Some("Main window bind group"),
@@ -100,16 +128,33 @@ fn bind_group(
     //         },
     //     ],
     // })
-    let radar_buffer = device.create_buffer(&radar.buffer_descriptor());
+    // let radar_buffer = device.create_buffer(&radar.buffer_descriptor());
+    // let resolution_buffer = device.create_buffer(&resolution.buffer_descriptor());
+
     device.create_bind_group(&BindGroupDescriptor {
         label: Some("Radar bind group"),
         layout,
-        entries: &[BindGroupEntry {
-            binding: 0,
-            resource: radar_buffer.as_entire_binding(),
-        }],
+        entries: &[
+            BindGroupEntry {
+                binding: 0,
+                resource: radar_buffer.as_entire_binding(),
+            },
+            BindGroupEntry {
+                binding: 1,
+                resource: resolution_buffer.as_entire_binding(),
+            },
+        ],
     })
 }
+
+// fn resolution_buffer(device: &Device) -> Buffer {
+//     device.create_buffer(&BufferDescriptor {
+//         label: Some("Resolution uniform"),
+//         size: mem::size_of::<[f32; 2]>() as BufferAddress,
+//         usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+//         mapped_at_creation: false,
+//     })
+// }
 
 fn pipeline_layout(device: &Device, bind_group_layout: &BindGroupLayout) -> PipelineLayout {
     device.create_pipeline_layout(&PipelineLayoutDescriptor {
@@ -188,6 +233,7 @@ impl WindowMain {
     pub fn new(
         viewport: Viewport,
         device: &Device,
+        _queue: &Queue,
         texture_format: &TextureFormat,
     ) -> Result<Self> {
         // let bind_group_layout = bind_group_layout(device);
@@ -201,7 +247,6 @@ impl WindowMain {
         //     label: Some("Radar layout"),
         //     entries: &[radar.bind_group_layout_entry(0)],
         // });
-        let bind_group_layout = bind_group_layout(device, &radar);
 
         let size = 512;
         let width = size;
@@ -212,8 +257,21 @@ impl WindowMain {
         let image = TextureImage::new("Main texture image", device, width, height, &data)?;
         let camera = Camera::default();
 
+        let s = viewport.window.inner_size();
+        let resolution = ResolutionUniform {
+            resolution: [s.width as f32, s.height as f32],
+        };
+
         let radar_buffer = device.create_buffer(&radar.buffer_descriptor());
-        let bind_group = bind_group(device, &bind_group_layout, &radar);
+        let resolution_buffer = device.create_buffer(&resolution.buffer_descriptor());
+
+        let bind_group_layout = bind_group_layout(device, &radar, &resolution);
+        let bind_group = bind_group(
+            device,
+            &bind_group_layout,
+            &radar_buffer,
+            &resolution_buffer,
+        );
 
         let pipeline_layout = pipeline_layout(device, &bind_group_layout);
         let shader_path = PathBuf::from(concat!(
@@ -228,6 +286,11 @@ impl WindowMain {
 
         let displace_amount = 0.05;
 
+        // queue.write_buffer(&radar_buffer, 0, bytemuck::bytes_of(&radar));
+        // queue.write_buffer(&resolution_buffer, 0, bytemuck::bytes_of(&resolution));
+        let vertex_buffer = square.vertex_buffer(device);
+        let index_buffer = square.index_buffer(device);
+
         Ok(Self {
             viewport,
             square,
@@ -236,10 +299,14 @@ impl WindowMain {
             image,
             displace_amount,
             camera,
-            radar,
-            radar_buffer,
             texture_format,
             shader_path,
+            vertex_buffer,
+            index_buffer,
+            radar,
+            radar_buffer,
+            resolution,
+            resolution_buffer,
         })
     }
 
@@ -283,7 +350,10 @@ impl WindowMain {
             _ => {}
         }
 
-        // self.rewrite_texture();
+        self.radar.view_dir = self.camera.viewing_dir.as_array();
+
+        let sz = self.viewport.window.inner_size();
+        self.radar.position = [self.camera.x * sz.width as f32, self.camera.y * sz.height as f32];
 
         self.viewport.window.request_redraw();
     }
@@ -304,10 +374,8 @@ impl WindowMain {
             label: Some("Main command encoder"),
         });
 
-        queue.write_buffer(&self.radar_buffer, 0, bytemuck::bytes_of(&self.radar));
-
-        let index_buffer = self.square.index_buffer(device);
-        let vertex_buffer = self.square.vertex_buffer(device);
+        // let index_buffer = self.square.index_buffer(device);
+        // let vertex_buffer = self.square.vertex_buffer(device);
 
         {
             let mut rpass = encoder.begin_render_pass(&RenderPassDescriptor {
@@ -328,11 +396,18 @@ impl WindowMain {
                 depth_stencil_attachment: None,
             });
 
+            queue.write_buffer(&self.radar_buffer, 0, bytemuck::bytes_of(&self.radar));
+            queue.write_buffer(
+                &self.resolution_buffer,
+                0,
+                bytemuck::bytes_of(&self.resolution),
+            );
+
             // TODO: Check out debug group, debug marker calls etc.
             rpass.set_pipeline(&self.render_pipeline);
             rpass.set_bind_group(0, &self.bind_group, &[]);
-            rpass.set_index_buffer(index_buffer.slice(..), IndexFormat::Uint16);
-            rpass.set_vertex_buffer(0, vertex_buffer.slice(..));
+            rpass.set_index_buffer(self.index_buffer.slice(..), IndexFormat::Uint16);
+            rpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             rpass.draw_indexed(0..self.square.indices.len() as u32, 0, 0..1);
         }
 
@@ -356,12 +431,22 @@ impl WindowMain {
     pub fn reload_shader(&mut self, device: &Device) -> Result<()> {
         let shader = Self::load_shader(&self.shader_path, device)?;
 
-        let bind_group_layout = bind_group_layout(device, &self.radar);
+        let bind_group_layout = bind_group_layout(device, &self.radar, &self.resolution);
         let pipeline_layout = pipeline_layout(device, &bind_group_layout);
         let format = self.texture_format;
 
         self.render_pipeline = render_pipeline(device, &shader, &pipeline_layout, &format);
 
         Ok(())
+    }
+
+    pub fn resize(
+        &mut self,
+        adapter: &Adapter,
+        device: &Device,
+        size: winit::dpi::PhysicalSize<u32>,
+    ) {
+        self.viewport.resize(adapter, device, size);
+        self.resolution.resize(size);
     }
 }
